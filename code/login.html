@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Del Be Del</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <nav>
+    <a href="index.html" class="logo" data-i18n="logo"></a>
+    <div id="nav-auth"></div>
+    <button id="lang-toggle" class="lang-btn"></button>
+  </nav>
+
+  <div class="page-center">
+    <h2 data-i18n="login.title"></h2>
+    <div class="card">
+      <form id="login-form">
+        <div class="form-group">
+          <label data-i18n="login.email"></label>
+          <input type="email" id="login-email" required>
+        </div>
+        <div class="form-group">
+          <label data-i18n="login.password"></label>
+          <input type="password" id="login-password" required>
+        </div>
+        <button type="submit" class="btn" data-i18n="login.submit"></button>
+        <div id="login-msg" class="msg"></div>
+      </form>
+      <p class="link-text">
+        <span data-i18n="login.noAccount"></span>
+        <a href="register.html" data-i18n="login.registerLink"></a>
+      </p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    redirectIfLoggedIn();
+    document.getElementById("login-form").addEventListener("submit", async e => {
+      e.preventDefault();
+      const btn = e.target.querySelector("button");
+      const msg = document.getElementById("login-msg");
+      btn.disabled = true;
+      btn.textContent = i18n.t("login.loggingIn");
+      try {
+        await login(
+          document.getElementById("login-email").value,
+          document.getElementById("login-password").value
+        );
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = "msg error";
+        btn.disabled = false;
+        btn.textContent = i18n.t("login.submit");
+      }
+    });
+  </script>
+</body>
+</html>

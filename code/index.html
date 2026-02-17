@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Del Be Del · دل به دل</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <nav>
+    <a href="index.html" class="logo" data-i18n="logo"></a>
+    <div id="nav-auth"></div>
+    <button id="lang-toggle" class="lang-btn"></button>
+  </nav>
+
+  <section class="hero">
+    <h1 data-i18n="hero.title"></h1>
+    <div class="hero-subtitle" data-i18n="hero.subtitle"></div>
+    <p data-i18n="hero.description"></p>
+    <div class="hero-buttons">
+      <a href="register.html" class="btn btn-auto" data-i18n="hero.getStarted"></a>
+      <a href="login.html" class="btn btn-outline btn-auto" data-i18n="hero.login"></a>
+    </div>
+  </section>
+
+  <section class="intro">
+    <h2 data-i18n="intro.title"></h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3 data-i18n="intro.step1.title"></h3>
+        <p data-i18n="intro.step1.desc"></p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3 data-i18n="intro.step2.title"></h3>
+        <p data-i18n="intro.step2.desc"></p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3 data-i18n="intro.step3.title"></h3>
+        <p data-i18n="intro.step3.desc"></p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3 data-i18n="intro.step4.title"></h3>
+        <p data-i18n="intro.step4.desc"></p>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

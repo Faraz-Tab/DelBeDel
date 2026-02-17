@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: owner can read and create, update only displayName
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.username == resource.data.username
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // Usernames: anyone authenticated can read (for search), creator can create, no update/delete
+    match /usernames/{username} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+
+    // Connections: creator can create/read/delete, target can read
+    match /connections/{connId} {
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.fromUid;
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.fromUid
+            || request.auth.uid == resource.data.toUid);
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.fromUid;
+    }
+
+    // Taps: creator can create, sender and receiver can read, no update/delete
+    match /taps/{tapId} {
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.fromUid;
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.fromUid
+            || request.auth.uid == resource.data.toUid);
+    }
+  }
+}

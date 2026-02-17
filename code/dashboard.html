@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Del Be Del</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <nav>
+    <a href="index.html" class="logo" data-i18n="logo"></a>
+    <div id="nav-auth"></div>
+    <button id="lang-toggle" class="lang-btn"></button>
+  </nav>
+
+  <div class="dashboard-content">
+    <h1 id="dash-greeting"></h1>
+    <p data-i18n="dash.subtitle"></p>
+
+    <!-- Getting started guide -->
+    <div id="guide-card" class="card guide-card" style="display:none;">
+      <h3 data-i18n="dash.guide.title"></h3>
+      <ol class="guide-steps">
+        <li data-i18n="dash.guide.step1"></li>
+        <li data-i18n="dash.guide.step2"></li>
+        <li data-i18n="dash.guide.step3"></li>
+        <li data-i18n="dash.guide.step4"></li>
+        <li data-i18n="dash.guide.step5"></li>
+      </ol>
+      <button class="btn btn-sage btn-sm" id="dismiss-guide" data-i18n="dash.guide.dismiss"></button>
+    </div>
+
+    <!-- Search -->
+    <div class="card search-card">
+      <form id="search-form" class="search-row">
+        <input type="text" id="search-input"
+          data-i18n="dash.search.placeholder" data-i18n-attr="placeholder">
+        <button type="submit" class="btn btn-sm" id="search-btn" data-i18n="dash.search.btn"></button>
+      </form>
+      <div id="search-msg" class="msg"></div>
+    </div>
+
+    <!-- Connections -->
+    <div class="section-header">
+      <h2 data-i18n="dash.connections.title"></h2>
+    </div>
+    <div id="connections-list" class="conn-list"></div>
+    <p id="no-connections" class="empty-state" data-i18n="dash.connections.empty"></p>
+
+    <!-- Summary -->
+    <div id="summary-section" class="card summary-card"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script>
+    redirectIfLoggedOut();
+    auth.onAuthStateChanged(user => {
+      if (!user) return;
+      dash.init(user);
+    });
+  </script>
+</body>
+</html>

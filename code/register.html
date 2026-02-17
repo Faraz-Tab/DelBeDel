@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Del Be Del</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <nav>
+    <a href="index.html" class="logo" data-i18n="logo"></a>
+    <div id="nav-auth"></div>
+    <button id="lang-toggle" class="lang-btn"></button>
+  </nav>
+
+  <div class="page-center">
+    <h2 data-i18n="register.title"></h2>
+    <div class="card">
+      <form id="register-form">
+        <div class="form-group">
+          <label data-i18n="register.displayName"></label>
+          <input type="text" id="reg-name" required>
+        </div>
+        <div class="form-group">
+          <label data-i18n="register.username"></label>
+          <input type="text" id="reg-username" required minlength="3" maxlength="20"
+            data-i18n="register.usernamePlaceholder" data-i18n-attr="placeholder">
+        </div>
+        <div class="form-group">
+          <label data-i18n="register.email"></label>
+          <input type="email" id="reg-email" required>
+        </div>
+        <div class="form-group">
+          <label data-i18n="register.password"></label>
+          <input type="password" id="reg-password" minlength="6" required>
+        </div>
+        <button type="submit" class="btn" data-i18n="register.submit"></button>
+        <div id="reg-msg" class="msg"></div>
+      </form>
+      <p class="link-text">
+        <span data-i18n="register.hasAccount"></span>
+        <a href="login.html" data-i18n="register.loginLink"></a>
+      </p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    redirectIfLoggedIn();
+    document.getElementById("register-form").addEventListener("submit", async e => {
+      e.preventDefault();
+      const btn = e.target.querySelector("button");
+      const msg = document.getElementById("reg-msg");
+      btn.disabled = true;
+      btn.textContent = i18n.t("register.creating");
+      try {
+        await register(
+          document.getElementById("reg-email").value,
+          document.getElementById("reg-password").value,
+          document.getElementById("reg-name").value.trim(),
+          document.getElementById("reg-username").value
+        );
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = "msg error";
+        btn.disabled = false;
+        btn.textContent = i18n.t("register.submit");
+      }
+    });
+  </script>
+</body>
+</html>
