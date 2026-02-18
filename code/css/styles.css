@@ -493,7 +493,7 @@ nav .logo {
   .hero-buttons { flex-direction: column; }
   .btn-auto { width: 100%; }
   .steps { grid-template-columns: 1fr; }
-  .dashboard-content { padding: 1.5rem 1rem; }
+  .dashboard-content { padding: 3rem 1rem; }
   .conn-row { padding: 0.65rem 0.75rem; gap: 0.6rem; }
   .conn-tap-count { max-width: 100%; font-size: 0.68rem; }
 }

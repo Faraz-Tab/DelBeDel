@@ -1,6 +1,8 @@
+let _registering = false;
+
 function redirectIfLoggedIn() {
   auth.onAuthStateChanged(user => {
-    if (user) window.location.href = "dashboard.html";
+    if (user && !_registering) window.location.href = "dashboard.html";
   });
 }
 
@@ -49,20 +51,25 @@ async function register(email, password, displayName, username) {
     throw new Error(i18n.t("register.usernameTaken"));
   }
 
-  const cred = await auth.createUserWithEmailAndPassword(email, password);
-  await cred.user.updateProfile({ displayName });
+  _registering = true;
+  try {
+    const credential = await auth.createUserWithEmailAndPassword(email, password);
+    const user = credential.user;
 
-  const batch = db.batch();
-  batch.set(db.collection("users").doc(cred.user.uid), {
-    displayName,
-    username,
-    email,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  batch.set(db.collection("usernames").doc(username), {
-    uid: cred.user.uid
-  });
-  await batch.commit();
+    await user.updateProfile({ displayName });
+
+    const batch = db.batch();
+    batch.set(db.collection("users").doc(user.uid), {
+      displayName,
+      username,
+      email,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    batch.set(db.collection("usernames").doc(username), { uid: user.uid });
+    await batch.commit();
+  } finally {
+    _registering = false;
+  }
 
   window.location.href = "dashboard.html";
 }

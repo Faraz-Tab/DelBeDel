@@ -67,7 +67,7 @@
   "dash.connections.remove": "Remove",
   "dash.connections.removeConfirm": "Remove {name} from your connections?",
   "dash.connections.tappedToday": "You tapped {name} {count} time(s) today",
-  "dash.connections.cooldown": "Wait a moment before tapping again",
+  "dash.connections.cooldown": "Wait atleas 3 minutes before tapping again",
 
   "dash.summary.title": "Your Summary",
   "dash.summary.last24h": "Last 24 hours",
