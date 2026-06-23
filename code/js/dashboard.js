@@ -189,8 +189,8 @@ const dash = {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const snap = await db.collection("taps")
-      .where("fromUid", "==", this.uid)
+    const snap = await db.collection("users").doc(this.uid)
+      .collection("tapsSent")
       .where("toUid", "==", toUid)
       .where("timestamp", ">=", todayStart)
       .get();
@@ -217,13 +217,25 @@ const dash = {
     btn.classList.add("pulsed");
 
     try {
-      await db.collection("taps").add({
-        fromUid: this.uid,
+      const batch = db.batch();
+      const sentRef = db.collection("users").doc(this.uid)
+        .collection("tapsSent").doc();
+      const receivedRef = db.collection("users").doc(toUid)
+        .collection("tapsReceived").doc();
+
+      batch.set(sentRef, {
         toUid: toUid,
-        fromUsername: this.username,
         toUsername: toUsername,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
+
+      batch.set(receivedRef, {
+        fromUid: this.uid,
+        fromUsername: this.username,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      await batch.commit();
 
       this.tapCooldowns[connId] = now;
 
@@ -292,13 +304,14 @@ const dash = {
     const h24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const snap24 = await db.collection("taps")
-      .where("toUid", "==", this.uid)
+    const myTapsReceived = db.collection("users").doc(this.uid)
+      .collection("tapsReceived");
+
+    const snap24 = await myTapsReceived
       .where("timestamp", ">=", h24)
       .get();
 
-    const snap7d = await db.collection("taps")
-      .where("toUid", "==", this.uid)
+    const snap7d = await myTapsReceived
       .where("timestamp", ">=", d7)
       .get();
 

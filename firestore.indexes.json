@@ -17,16 +17,7 @@
       ]
     },
     {
-      "collectionGroup": "taps",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "fromUid", "order": "ASCENDING" },
-        { "fieldPath": "toUid", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "taps",
+      "collectionGroup": "tapsSent",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "toUid", "order": "ASCENDING" },

@@ -1,0 +1,17 @@
+{
+  "name": "del-be-del",
+  "version": "1.0.0",
+  "description": "Del Be Del — bilingual research platform for studying synchronicity in human connection",
+  "private": true,
+  "scripts": {
+    "deploy": "firebase deploy",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "serve": "firebase emulators:start",
+    "start": "firebase serve --only hosting"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.0.0"
+  }
+}
