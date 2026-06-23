@@ -145,7 +145,6 @@ const dash = {
 
     let html = "";
     for (const conn of this.connections) {
-      const tapCount = await this.getTodayTapCount(conn.toUid);
       const initials = this.getInitials(conn.toDisplayName || conn.toUsername);
 
       html += `
@@ -169,8 +168,12 @@ const dash = {
     container.innerHTML = html;
 
     for (const conn of this.connections) {
-      const tapCount = await this.getTodayTapCount(conn.toUid);
-      this.updateTapCountDisplay(conn.id, conn.toDisplayName || conn.toUsername, tapCount);
+      try {
+        const tapCount = await this.getTodayTapCount(conn.toUid);
+        this.updateTapCountDisplay(conn.id, conn.toDisplayName || conn.toUsername, tapCount);
+      } catch (err) {
+        console.warn("Could not load tap count for", conn.toUsername, err);
+      }
     }
   },
 
