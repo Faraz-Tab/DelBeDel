@@ -70,12 +70,14 @@
   "dash.connections.cooldown": "چند لحظه صبر کنید",
 
   "dash.summary.title": "خلاصه شما",
-  "dash.summary.last24h": "۲۴ ساعت گذشته",
-  "dash.summary.last7d": "۷ روز گذشته",
+  "dash.summary.today": "فعالیت امروز",
   "dash.summary.updatesAt": "به‌روزرسانی ساعت ۱۱ شب",
   "dash.summary.noTaps": "هنوز کسی به شما ضربه نزده است.",
-  "dash.summary.taps24h": "{name} — {count} ضربه",
-  "dash.summary.taps7d": "{name} — {count} ضربه",
+  "dash.summary.tappedBy": "{name} — {count} ضربه",
+  "dash.summary.matchTitle": "تفکر متقابل",
+  "dash.summary.matchCount": "{count} لحظه‌ای که افکار شما با کسی هم‌زمان بوده امروز",
+  "dash.summary.statsSent": "شما امروز {count} ضربه ارسال کردید",
+  "dash.summary.statsReceived": "شما امروز {count} ضربه دریافت کردید",
 
   "tap.sent": "ارسال شد",
 

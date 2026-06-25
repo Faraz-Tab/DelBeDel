@@ -24,6 +24,17 @@ service cloud.firestore {
           && request.resource.data.fromUid == request.auth.uid;
         allow read: if request.auth != null && request.auth.uid == uid;
       }
+
+      // Daily summary written by Cloud Function, read by owner only
+      match /dailySummary/{date} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Research data — Cloud Function writes via Admin SDK (bypasses rules),
+    // no client access
+    match /research/{document=**} {
+      allow read, write: if false;
     }
 
     // Usernames: anyone authenticated can read (for search), creator can create, no update/delete

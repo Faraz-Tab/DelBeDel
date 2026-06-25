@@ -70,12 +70,14 @@
   "dash.connections.cooldown": "Wait atleas 3 minutes before tapping again",
 
   "dash.summary.title": "Your Summary",
-  "dash.summary.last24h": "Last 24 hours",
-  "dash.summary.last7d": "Last 7 days",
+  "dash.summary.today": "Today's Activity",
   "dash.summary.updatesAt": "Updates at 11 PM",
   "dash.summary.noTaps": "No one has tapped you yet.",
-  "dash.summary.taps24h": "{name} — {count} tap(s)",
-  "dash.summary.taps7d": "{name} — {count} tap(s)",
+  "dash.summary.tappedBy": "{name} — {count} tap(s)",
+  "dash.summary.matchTitle": "Mutual Thinking",
+  "dash.summary.matchCount": "{count} moment(s) where your thoughts aligned with someone today",
+  "dash.summary.statsSent": "You sent {count} tap(s) today",
+  "dash.summary.statsReceived": "You received {count} tap(s) today",
 
   "tap.sent": "Sent",
 

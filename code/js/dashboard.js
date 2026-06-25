@@ -304,35 +304,31 @@ const dash = {
 
   async fetchAndStoreSummary() {
     const now = new Date();
-    const h24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const dateKey = now.toISOString().split("T")[0];
 
-    const myTapsReceived = db.collection("users").doc(this.uid)
-      .collection("tapsReceived");
+    try {
+      const doc = await db.collection("users").doc(this.uid)
+        .collection("dailySummary").doc(dateKey).get();
 
-    const snap24 = await myTapsReceived
-      .where("timestamp", ">=", h24)
-      .get();
+      if (doc.exists) {
+        const data = doc.data();
+        this.summaryData = {
+          tappedBy: data.tappedBy || {},
+          matchedTaps: data.matchedTaps || 0,
+          tapsSent: data.tapsSent || 0,
+          tapsReceived: data.tapsReceived || 0,
+          unmatchedSent: data.unmatchedSent || 0,
+          unmatchedReceived: data.unmatchedReceived || 0,
+          matchCount: data.matchCount || 0
+        };
+      } else {
+        this.summaryData = null;
+      }
+    } catch (err) {
+      console.warn("Could not load daily summary:", err);
+      this.summaryData = null;
+    }
 
-    const snap7d = await myTapsReceived
-      .where("timestamp", ">=", d7)
-      .get();
-
-    const count24 = {};
-    snap24.forEach(doc => {
-      const d = doc.data();
-      const key = d.fromUsername;
-      count24[key] = (count24[key] || 0) + 1;
-    });
-
-    const count7d = {};
-    snap7d.forEach(doc => {
-      const d = doc.data();
-      const key = d.fromUsername;
-      count7d[key] = (count7d[key] || 0) + 1;
-    });
-
-    this.summaryData = { count24, count7d };
     localStorage.setItem("summaryData", JSON.stringify(this.summaryData));
     localStorage.setItem("summaryTime", now.toISOString());
   },
@@ -349,20 +345,19 @@ const dash = {
       return;
     }
 
-    const { count24, count7d } = this.summaryData;
-    const has24 = Object.keys(count24).length > 0;
-    const has7d = Object.keys(count7d).length > 0;
+    const { tappedBy, matchedTaps, tapsSent, tapsReceived } = this.summaryData;
+    const hasTaps = Object.keys(tappedBy).length > 0;
 
     let html = `
       <h3 data-i18n="dash.summary.title"></h3>
       <p class="summary-note" data-i18n="dash.summary.updatesAt"></p>`;
 
     html += `<div class="summary-block">
-      <h4 data-i18n="dash.summary.last24h"></h4>`;
-    if (has24) {
+      <h4 data-i18n="dash.summary.today"></h4>`;
+    if (hasTaps) {
       html += `<ul class="summary-list">`;
-      for (const [name, count] of Object.entries(count24)) {
-        html += `<li>${i18n.t("dash.summary.taps24h", { name: "@" + name, count })}</li>`;
+      for (const [name, count] of Object.entries(tappedBy)) {
+        html += `<li>${i18n.t("dash.summary.tappedBy", { name: "@" + name, count })}</li>`;
       }
       html += `</ul>`;
     } else {
@@ -370,18 +365,17 @@ const dash = {
     }
     html += `</div>`;
 
-    html += `<div class="summary-block">
-      <h4 data-i18n="dash.summary.last7d"></h4>`;
-    if (has7d) {
-      html += `<ul class="summary-list">`;
-      for (const [name, count] of Object.entries(count7d)) {
-        html += `<li>${i18n.t("dash.summary.taps7d", { name: "@" + name, count })}</li>`;
-      }
-      html += `</ul>`;
-    } else {
-      html += `<p class="empty-state" data-i18n="dash.summary.noTaps"></p>`;
+    if (matchedTaps > 0) {
+      html += `<div class="summary-block summary-match">
+        <h4 data-i18n="dash.summary.matchTitle"></h4>
+        <p>${i18n.t("dash.summary.matchCount", { count: matchedTaps })}</p>
+      </div>`;
     }
-    html += `</div>`;
+
+    html += `<div class="summary-block summary-stats">
+      <p>${i18n.t("dash.summary.statsSent", { count: tapsSent })}</p>
+      <p>${i18n.t("dash.summary.statsReceived", { count: tapsReceived })}</p>
+    </div>`;
 
     section.innerHTML = html;
     i18n.applyAll();
