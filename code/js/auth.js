@@ -65,7 +65,7 @@ async function register(email, password, displayName, username) {
       email,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    batch.set(db.collection("usernames").doc(username), { uid: user.uid });
+    batch.set(db.collection("usernames").doc(username), { uid: user.uid, displayName });
     await batch.commit();
   } finally {
     _registering = false;
@@ -77,6 +77,10 @@ async function register(email, password, displayName, username) {
 async function login(email, password) {
   await auth.signInWithEmailAndPassword(email, password);
   window.location.href = "dashboard.html";
+}
+
+async function resetPassword(email) {
+  await auth.sendPasswordResetEmail(email);
 }
 
 function logout() {

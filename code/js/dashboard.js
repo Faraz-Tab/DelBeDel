@@ -15,10 +15,24 @@ const dash = {
     document.getElementById("dash-greeting").textContent =
       i18n.t("dash.greeting", { name: user.displayName || "User" });
 
+    this.loadCooldowns();
     this.initGuide();
     this.initSearch();
     await this.loadConnections();
     this.loadSummary();
+  },
+
+  // --- Tap cooldowns (persisted so a page reload can't bypass them) ---
+  loadCooldowns() {
+    try {
+      this.tapCooldowns = JSON.parse(localStorage.getItem("tapCooldowns")) || {};
+    } catch (err) {
+      this.tapCooldowns = {};
+    }
+  },
+
+  saveCooldowns() {
+    localStorage.setItem("tapCooldowns", JSON.stringify(this.tapCooldowns));
   },
 
   // --- Guide ---
@@ -38,10 +52,77 @@ const dash = {
   // --- Search & Add ---
   initSearch() {
     const form = document.getElementById("search-form");
+    const input = document.getElementById("search-input");
+
     form.addEventListener("submit", e => {
       e.preventDefault();
+      this.hideSearchResults();
       this.searchAndAdd();
     });
+
+    input.addEventListener("input", () => {
+      clearTimeout(this._searchDebounce);
+      const prefix = input.value.toLowerCase().trim().replace(/^@/, "");
+      if (!prefix) {
+        this.hideSearchResults();
+        return;
+      }
+      this._searchDebounce = setTimeout(() => this.liveSearch(prefix), 250);
+    });
+
+    document.addEventListener("click", e => {
+      const results = document.getElementById("search-results");
+      if (results && !results.contains(e.target) && e.target !== input) {
+        this.hideSearchResults();
+      }
+      if (!e.target.closest(".conn-options")) {
+        document.querySelectorAll(".options-menu.open").forEach(m => m.classList.remove("open"));
+      }
+    });
+  },
+
+  async liveSearch(prefix) {
+    const results = document.getElementById("search-results");
+
+    try {
+      const snap = await db.collection("usernames")
+        .orderBy(firebase.firestore.FieldPath.documentId())
+        .startAt(prefix)
+        .endAt(prefix + "")
+        .limit(8)
+        .get();
+
+      const rows = [];
+      snap.forEach(doc => {
+        if (doc.id === this.username) return;
+        const data = doc.data();
+        const name = data.displayName || doc.id;
+        rows.push({ username: doc.id, uid: data.uid, name });
+      });
+
+      if (rows.length === 0) {
+        results.innerHTML = `<div class="search-result-empty">${i18n.t("dash.search.noMatches")}</div>`;
+      } else {
+        results.innerHTML = rows.map(r => `
+          <div class="search-result-row">
+            <span class="search-result-name">${r.name}</span>
+            <span class="search-result-username">@${r.username}</span>
+            <button type="button" class="btn btn-sm"
+              onclick="dash.addConnection('${r.uid}', '${r.username}', '${r.name.replace(/'/g, "\\'")}')">
+              ${i18n.t("dash.search.btn")}
+            </button>
+          </div>`).join("");
+      }
+
+      results.style.display = "block";
+    } catch (err) {
+      console.warn("Live search failed:", err);
+    }
+  },
+
+  hideSearchResults() {
+    const results = document.getElementById("search-results");
+    if (results) results.style.display = "none";
   },
 
   async searchAndAdd() {
@@ -54,12 +135,6 @@ const dash = {
 
     if (!query) return;
 
-    if (query === this.username) {
-      msg.textContent = i18n.t("dash.search.selfAdd");
-      msg.className = "msg error";
-      return;
-    }
-
     btn.disabled = true;
     btn.textContent = i18n.t("dash.search.searching");
 
@@ -68,13 +143,31 @@ const dash = {
       if (!usernameDoc.exists) {
         msg.textContent = i18n.t("dash.search.notFound");
         msg.className = "msg error";
-        btn.disabled = false;
-        btn.textContent = i18n.t("dash.search.btn");
-        return;
+      } else {
+        const data = usernameDoc.data();
+        await this.addConnection(data.uid, query, data.displayName || query);
       }
+    } catch (err) {
+      msg.textContent = err.message;
+      msg.className = "msg error";
+    }
 
-      const targetUid = usernameDoc.data().uid;
+    btn.disabled = false;
+    btn.textContent = i18n.t("dash.search.btn");
+  },
 
+  async addConnection(targetUid, targetUsername, targetDisplayName) {
+    const msg = document.getElementById("search-msg");
+    msg.textContent = "";
+    msg.className = "msg";
+
+    if (targetUsername === this.username) {
+      msg.textContent = i18n.t("dash.search.selfAdd");
+      msg.className = "msg error";
+      return;
+    }
+
+    try {
       const existing = await db.collection("connections")
         .where("fromUid", "==", this.uid)
         .where("toUid", "==", targetUid)
@@ -83,34 +176,34 @@ const dash = {
       if (!existing.empty) {
         msg.textContent = i18n.t("dash.search.alreadyAdded");
         msg.className = "msg error";
-        btn.disabled = false;
-        btn.textContent = i18n.t("dash.search.btn");
         return;
       }
-
-      const targetDoc = await db.collection("users").doc(targetUid).get();
-      const targetData = targetDoc.data();
 
       await db.collection("connections").add({
         fromUid: this.uid,
         toUid: targetUid,
         fromUsername: this.username,
-        toUsername: targetData.username,
-        toDisplayName: targetData.displayName,
+        toUsername: targetUsername,
+        toDisplayName: targetDisplayName,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
       msg.textContent = i18n.t("dash.search.added");
       msg.className = "msg success";
-      input.value = "";
+      document.getElementById("search-input").value = "";
+      this.hideSearchResults();
       await this.loadConnections();
     } catch (err) {
       msg.textContent = err.message;
       msg.className = "msg error";
     }
+  },
 
-    btn.disabled = false;
-    btn.textContent = i18n.t("dash.search.btn");
+  toggleOptions(connId) {
+    const menu = document.getElementById(`options-${connId}`);
+    const isOpen = menu.classList.contains("open");
+    document.querySelectorAll(".options-menu.open").forEach(m => m.classList.remove("open"));
+    if (!isOpen) menu.classList.add("open");
   },
 
   // --- Connections ---
@@ -159,8 +252,14 @@ const dash = {
             <span class="conn-tap-count" id="count-${conn.id}"></span>
             <button class="heart-btn" id="tap-${conn.id}"
               onclick="dash.tap('${conn.id}', '${conn.toUid}', '${conn.toUsername}', '${(conn.toDisplayName || conn.toUsername).replace(/'/g, "\\'")}')">♥</button>
-            <button class="remove-btn"
-              onclick="dash.removeConnection('${conn.id}', '${(conn.toDisplayName || conn.toUsername).replace(/'/g, "\\'")}')">×</button>
+            <div class="conn-options">
+              <button class="options-btn" aria-label="${i18n.t("dash.connections.options")}"
+                onclick="dash.toggleOptions('${conn.id}')">⋯</button>
+              <div class="options-menu" id="options-${conn.id}">
+                <button class="options-item"
+                  onclick="dash.removeConnection('${conn.id}', '${(conn.toDisplayName || conn.toUsername).replace(/'/g, "\\'")}')">${i18n.t("dash.connections.remove")}</button>
+              </div>
+            </div>
           </div>
         </div>`;
     }
@@ -241,6 +340,7 @@ const dash = {
       await batch.commit();
 
       this.tapCooldowns[connId] = now;
+      this.saveCooldowns();
 
       sentEl.textContent = i18n.t("tap.sent");
       sentEl.className = "conn-sent show";
@@ -270,67 +370,22 @@ const dash = {
     }
   },
 
-  // --- Summary (11 PM gate) ---
+  // --- Summary ---
   async loadSummary() {
-    const container = document.getElementById("summary-section");
-    const stored = localStorage.getItem("summaryData");
-    const storedTime = localStorage.getItem("summaryTime");
-
-    const now = new Date();
-    const hour = now.getHours();
-
-    // Check if we've passed 11 PM since last update
-    const shouldUpdate = this.shouldUpdateSummary(storedTime, now);
-
-    if (shouldUpdate && hour >= 23) {
-      await this.fetchAndStoreSummary();
-    } else if (stored) {
-      this.summaryData = JSON.parse(stored);
-    }
-
-    this.renderSummary();
-  },
-
-  shouldUpdateSummary(storedTime, now) {
-    if (!storedTime) return true;
-    const last = new Date(storedTime);
-    const lastDate = last.toDateString();
-    const todayDate = now.toDateString();
-
-    if (lastDate !== todayDate) return true;
-    if (last.getHours() < 23 && now.getHours() >= 23) return true;
-    return false;
-  },
-
-  async fetchAndStoreSummary() {
-    const now = new Date();
-    const dateKey = now.toISOString().split("T")[0];
-
     try {
-      const doc = await db.collection("users").doc(this.uid)
-        .collection("dailySummary").doc(dateKey).get();
+      const snap = await db.collection("users").doc(this.uid)
+        .collection("dailySummary")
+        .orderBy("date", "desc")
+        .limit(1)
+        .get();
 
-      if (doc.exists) {
-        const data = doc.data();
-        this.summaryData = {
-          tappedBy: data.tappedBy || {},
-          matchedTaps: data.matchedTaps || 0,
-          tapsSent: data.tapsSent || 0,
-          tapsReceived: data.tapsReceived || 0,
-          unmatchedSent: data.unmatchedSent || 0,
-          unmatchedReceived: data.unmatchedReceived || 0,
-          matchCount: data.matchCount || 0
-        };
-      } else {
-        this.summaryData = null;
-      }
+      this.summaryData = snap.empty ? null : snap.docs[0].data();
     } catch (err) {
       console.warn("Could not load daily summary:", err);
       this.summaryData = null;
     }
 
-    localStorage.setItem("summaryData", JSON.stringify(this.summaryData));
-    localStorage.setItem("summaryTime", now.toISOString());
+    this.renderSummary();
   },
 
   renderSummary() {

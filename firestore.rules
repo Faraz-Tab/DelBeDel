@@ -37,10 +37,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Usernames: anyone authenticated can read (for search), creator can create, no update/delete
+    // Usernames: anyone authenticated can read (for search), creator can create,
+    // owner can update displayName only (uid is immutable), no delete
     match /usernames/{username} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.uid
+        && request.resource.data.uid == resource.data.uid;
     }
 
     // Connections: creator can create/read/delete, target can read

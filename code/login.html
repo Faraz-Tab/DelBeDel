@@ -29,6 +29,9 @@
         <div id="login-msg" class="msg"></div>
       </form>
       <p class="link-text">
+        <a href="#" id="forgot-password-link" data-i18n="login.forgotPassword"></a>
+      </p>
+      <p class="link-text">
         <span data-i18n="login.noAccount"></span>
         <a href="register.html" data-i18n="login.registerLink"></a>
       </p>
@@ -59,6 +62,25 @@
         msg.className = "msg error";
         btn.disabled = false;
         btn.textContent = i18n.t("login.submit");
+      }
+    });
+
+    document.getElementById("forgot-password-link").addEventListener("click", async e => {
+      e.preventDefault();
+      const msg = document.getElementById("login-msg");
+      const email = document.getElementById("login-email").value.trim();
+      if (!email) {
+        msg.textContent = i18n.t("login.resetEmailNeeded");
+        msg.className = "msg error";
+        return;
+      }
+      try {
+        await resetPassword(email);
+        msg.textContent = i18n.t("login.resetSent");
+        msg.className = "msg success";
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = "msg error";
       }
     });
   </script>

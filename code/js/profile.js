@@ -1,6 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
   redirectIfLoggedOut();
 
+  let username = null;
+
   auth.onAuthStateChanged(async user => {
     if (!user) return;
 
@@ -9,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const doc = await db.collection("users").doc(user.uid).get();
     const data = doc.data() || {};
+    username = data.username || null;
     document.getElementById("display-name").value = data.displayName || "";
     document.getElementById("profile-username").textContent = "@" + (data.username || "—");
 
@@ -30,7 +33,12 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const user = auth.currentUser;
       await user.updateProfile({ displayName: newName });
-      await db.collection("users").doc(user.uid).update({ displayName: newName });
+      const batch = db.batch();
+      batch.update(db.collection("users").doc(user.uid), { displayName: newName });
+      if (username) {
+        batch.update(db.collection("usernames").doc(username), { displayName: newName });
+      }
+      await batch.commit();
       msg.textContent = i18n.t("profile.updated");
       msg.className = "msg success";
     } catch (err) {

@@ -280,6 +280,43 @@ nav .logo {
   max-width: 100%;
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
+  position: relative;
+}
+
+.search-results {
+  display: none;
+  position: absolute;
+  left: 1.25rem;
+  right: 1.25rem;
+  top: 100%;
+  margin-top: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(61, 53, 41, 0.1);
+  z-index: 20;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.search-result-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.search-result-row:last-child { border-bottom: none; }
+
+.search-result-name { font-weight: 600; font-size: 0.85rem; }
+.search-result-username { font-size: 0.75rem; color: var(--text-muted); flex: 1; }
+
+.search-result-empty {
+  padding: 0.75rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .search-row {
@@ -396,8 +433,10 @@ nav .logo {
   100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
 }
 
-/* Remove button */
-.remove-btn {
+/* Interaction options menu */
+.conn-options { position: relative; flex-shrink: 0; }
+
+.options-btn {
   width: 28px; height: 28px;
   border-radius: 50%;
   border: 1px solid var(--border);
@@ -407,14 +446,49 @@ nav .logo {
   cursor: pointer;
   transition: all 0.2s;
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
 }
 
-.remove-btn:hover {
+.options-btn:hover {
   border-color: var(--error);
   color: var(--error);
   background: rgba(196, 93, 74, 0.08);
 }
+
+.options-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(61, 53, 41, 0.1);
+  z-index: 20;
+  min-width: 140px;
+  overflow: hidden;
+}
+
+.options-menu.open { display: block; }
+
+[dir="rtl"] .options-menu { right: auto; left: 0; }
+
+.options-item {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border: none;
+  background: transparent;
+  color: var(--error);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+[dir="rtl"] .options-item { text-align: right; font-family: var(--farsi); }
+
+.options-item:hover { background: rgba(196, 93, 74, 0.08); }
 
 /* ─── Summary ─── */
 .summary-card {
