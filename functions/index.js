@@ -5,9 +5,9 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 initializeApp();
 const db = getFirestore();
 
-const MATCH_WINDOW_MS = 30 * 60 * 1000;
+const MATCH_WINDOW_MS = 10 * 60 * 1000;
 
-exports.dailyAnalysis = onSchedule("30 23 * * *", async (event) => {
+exports.dailyAnalysis = onSchedule("0 */6 * * *", async (event) => {
   const now = new Date();
   const dateKey = now.toISOString().split("T")[0];
 
@@ -112,6 +112,8 @@ exports.dailyAnalysis = onSchedule("30 23 * * *", async (event) => {
         matches.push({
           userA: uidA,
           userB: uidB,
+          userAUsername: sortedBA[bestMatch].toUsername,
+          userBUsername: tapA.toUsername,
           tapA_time: tapA.timestamp,
           tapB_time: sortedBA[bestMatch].timestamp,
           gapSeconds: Math.round(bestGap / 1000)
@@ -125,13 +127,18 @@ exports.dailyAnalysis = onSchedule("30 23 * * *", async (event) => {
     ensureUser(match.userB);
     userStats[match.userA].matchedTaps++;
     userStats[match.userB].matchedTaps++;
+    const matchedAt = match.tapA_time < match.tapB_time ? match.tapA_time : match.tapB_time;
     userStats[match.userA].matches.push({
       withUid: match.userB,
-      gapSeconds: match.gapSeconds
+      withUsername: match.userBUsername,
+      gapSeconds: match.gapSeconds,
+      matchedAt
     });
     userStats[match.userB].matches.push({
       withUid: match.userA,
-      gapSeconds: match.gapSeconds
+      withUsername: match.userAUsername,
+      gapSeconds: match.gapSeconds,
+      matchedAt
     });
   }
 
@@ -139,6 +146,7 @@ exports.dailyAnalysis = onSchedule("30 23 * * *", async (event) => {
     const s = userStats[uid];
     s.unmatchedSent = Math.max(0, s.tapsSent - s.matchedTaps);
     s.unmatchedReceived = Math.max(0, s.tapsReceived - s.matchedTaps);
+    s.matches.sort((a, b) => a.matchedAt - b.matchedAt);
   }
 
   const connSnap = await db.collection("connections").get();
@@ -191,9 +199,10 @@ exports.dailyAnalysis = onSchedule("30 23 * * *", async (event) => {
 
     for (const match of chunk) {
       const pairId = [match.userA, match.userB].sort().join("__");
+      const recordId = `${pairId}_${match.tapA_time.getTime()}_${match.tapB_time.getTime()}`;
       const ref = db.collection("research").doc("daily")
         .collection(dateKey).doc("matches")
-        .collection("records").doc();
+        .collection("records").doc(recordId);
       batch.set(ref, {
         userA: match.userA,
         userB: match.userB,
@@ -230,6 +239,7 @@ exports.dailyAnalysis = onSchedule("30 23 * * *", async (event) => {
         unmatchedSent: s.unmatchedSent,
         unmatchedReceived: s.unmatchedReceived,
         matchCount: s.matches.length,
+        matches: s.matches,
         tappedBy
       });
     }

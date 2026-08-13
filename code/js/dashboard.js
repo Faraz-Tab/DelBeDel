@@ -400,7 +400,8 @@ const dash = {
       return;
     }
 
-    const { tappedBy, matchedTaps, tapsSent, tapsReceived } = this.summaryData;
+    const { tappedBy, tapsSent, tapsReceived } = this.summaryData;
+    const matches = this.summaryData.matches || [];
     const hasTaps = Object.keys(tappedBy).length > 0;
 
     let html = `
@@ -420,11 +421,21 @@ const dash = {
     }
     html += `</div>`;
 
-    if (matchedTaps > 0) {
+    if (matches.length > 0) {
       html += `<div class="summary-block summary-match">
         <h4 data-i18n="dash.summary.matchTitle"></h4>
-        <p>${i18n.t("dash.summary.matchCount", { count: matchedTaps })}</p>
-      </div>`;
+        <ul class="summary-list">`;
+      for (const m of matches) {
+        const time = m.matchedAt && m.matchedAt.toDate
+          ? m.matchedAt.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "";
+        html += `<li>${i18n.t("dash.summary.matchWith", {
+          name: "@" + m.withUsername,
+          time,
+          gap: this.formatGap(m.gapSeconds)
+        })}</li>`;
+      }
+      html += `</ul></div>`;
     }
 
     html += `<div class="summary-block summary-stats">
@@ -437,6 +448,13 @@ const dash = {
   },
 
   // --- Helpers ---
+  formatGap(seconds) {
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  },
+
   getInitials(name) {
     return name.split(/[\s_]+/)
       .map(w => w[0])

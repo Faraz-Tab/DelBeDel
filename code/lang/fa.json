@@ -20,8 +20,8 @@
   "intro.step2.desc": "با نام کاربری افراد را جستجو کنید و به حلقه خود اضافه کنید.",
   "intro.step3.title": "وقتی به یادشان افتادید ضربه بزنید",
   "intro.step3.desc": "یک ضربه ساده روی قلب لحظه را ثبت می‌کند — هیچ اطلاع‌رسانی ارسال نمی‌شود.",
-  "intro.step4.title": "ساعت ۱۱ شب کشف کنید",
-  "intro.step4.desc": "هر شب، خلاصه‌ای از کسانی که در ۷ روز گذشته به شما فکر کرده‌اند را ببینید.",
+  "intro.step4.title": "در طول روز کشف کنید",
+  "intro.step4.desc": "خلاصه‌ای از کسانی که امروز به شما فکر کرده‌اند را ببینید، هر چند ساعت به‌روزرسانی می‌شود.",
 
   "register.title": "ساخت حساب کاربری",
   "register.displayName": "نام نمایشی",
@@ -54,7 +54,7 @@
   "dash.guide.step2": "نام کاربری خود را با کسانی که می‌خواهید ارتباط داشته باشید به اشتراک بگذارید.",
   "dash.guide.step3": "با نام کاربری دیگران را جستجو کنید و اضافه کنید.",
   "dash.guide.step4": "هر وقت کسی به ذهنتان رسید، روی قلب ضربه بزنید.",
-  "dash.guide.step5": "ساعت ۱۱ شب خلاصه روزانه خود را ببینید.",
+  "dash.guide.step5": "در طول روز خلاصه خود را بررسی کنید.",
   "dash.guide.dismiss": "متوجه شدم",
 
   "dash.search.placeholder": "جستجو با نام کاربری...",
@@ -76,11 +76,11 @@
 
   "dash.summary.title": "خلاصه شما",
   "dash.summary.today": "فعالیت امروز",
-  "dash.summary.updatesAt": "آخرین تحلیل شبانه شما",
+  "dash.summary.updatesAt": "هر چند ساعت به‌روزرسانی می‌شود",
   "dash.summary.noTaps": "هنوز کسی به شما ضربه نزده است.",
   "dash.summary.tappedBy": "{name} — {count} ضربه",
   "dash.summary.matchTitle": "تفکر متقابل",
-  "dash.summary.matchCount": "{count} لحظه‌ای که افکار شما با کسی هم‌زمان بوده امروز",
+  "dash.summary.matchWith": "{name} ساعت {time} — فاصله {gap}",
   "dash.summary.statsSent": "شما امروز {count} ضربه ارسال کردید",
   "dash.summary.statsReceived": "شما امروز {count} ضربه دریافت کردید",
 

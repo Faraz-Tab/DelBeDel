@@ -20,8 +20,8 @@
   "intro.step2.desc": "Search for people by username and add them to your circle.",
   "intro.step3.title": "Tap When You Think of Them",
   "intro.step3.desc": "A simple heart tap records the moment — no notification is sent.",
-  "intro.step4.title": "Discover at 11 PM",
-  "intro.step4.desc": "Each night, see a summary of who thought about you in the past 7 days.",
+  "intro.step4.title": "Discover Throughout the Day",
+  "intro.step4.desc": "See a summary of who thought about you today, updated every few hours.",
 
   "register.title": "Create an Account",
   "register.displayName": "Display Name",
@@ -54,7 +54,7 @@
   "dash.guide.step2": "Share your username with people you want to connect with.",
   "dash.guide.step3": "Search for others by username to add them as connections.",
   "dash.guide.step4": "Tap the heart whenever someone crosses your mind.",
-  "dash.guide.step5": "Check back at 11 PM to see your daily summary.",
+  "dash.guide.step5": "Check back throughout the day to see your summary update.",
   "dash.guide.dismiss": "Got it",
 
   "dash.search.placeholder": "Search by username...",
@@ -76,11 +76,11 @@
 
   "dash.summary.title": "Your Summary",
   "dash.summary.today": "Today's Activity",
-  "dash.summary.updatesAt": "Shows your most recent nightly analysis",
+  "dash.summary.updatesAt": "Updates every few hours",
   "dash.summary.noTaps": "No one has tapped you yet.",
   "dash.summary.tappedBy": "{name} — {count} tap(s)",
   "dash.summary.matchTitle": "Mutual Thinking",
-  "dash.summary.matchCount": "{count} moment(s) where your thoughts aligned with someone today",
+  "dash.summary.matchWith": "{name} at {time} — {gap} apart",
   "dash.summary.statsSent": "You sent {count} tap(s) today",
   "dash.summary.statsReceived": "You received {count} tap(s) today",
 
