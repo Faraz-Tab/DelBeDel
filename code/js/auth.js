@@ -34,9 +34,16 @@ function validateUsername(username) {
   return /^[a-z0-9_]{3,20}$/.test(username);
 }
 
-async function checkUsernameAvailable(username) {
-  const doc = await db.collection("usernames").doc(username).get();
-  return !doc.exists;
+function validateDisplayName(name) {
+  return name.length > 0 && name.length <= 50;
+}
+
+function currentTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
 }
 
 async function register(email, password, displayName, username) {
@@ -45,10 +52,8 @@ async function register(email, password, displayName, username) {
   if (!validateUsername(username)) {
     throw new Error(i18n.t("register.usernameInvalid"));
   }
-
-  const available = await checkUsernameAvailable(username);
-  if (!available) {
-    throw new Error(i18n.t("register.usernameTaken"));
+  if (!validateDisplayName(displayName)) {
+    throw new Error(i18n.t("register.displayNameInvalid"));
   }
 
   _registering = true;
@@ -56,17 +61,31 @@ async function register(email, password, displayName, username) {
     const credential = await auth.createUserWithEmailAndPassword(email, password);
     const user = credential.user;
 
-    await user.updateProfile({ displayName });
+    // Usernames are only readable once signed in, so availability is checked after sign-up
+    const taken = (await db.collection("usernames").doc(username).get()).exists;
+    if (taken) {
+      await user.delete();
+      throw new Error(i18n.t("register.usernameTaken"));
+    }
 
-    const batch = db.batch();
-    batch.set(db.collection("users").doc(user.uid), {
-      displayName,
-      username,
-      email,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    batch.set(db.collection("usernames").doc(username), { uid: user.uid, displayName });
-    await batch.commit();
+    try {
+      const batch = db.batch();
+      batch.set(db.collection("users").doc(user.uid), {
+        displayName,
+        username,
+        email: user.email,
+        timezone: currentTimezone(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      batch.set(db.collection("usernames").doc(username), { uid: user.uid, displayName });
+      await batch.commit();
+    } catch (err) {
+      // Don't leave an account without a profile if the username was claimed in the meantime
+      await user.delete();
+      throw err;
+    }
+
+    await user.updateProfile({ displayName });
   } finally {
     _registering = false;
   }
