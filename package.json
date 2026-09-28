@@ -3,15 +3,23 @@
   "version": "1.0.0",
   "description": "Del Be Del — bilingual research platform for studying synchronicity in human connection",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "deploy": "firebase deploy",
     "deploy:hosting": "firebase deploy --only hosting",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy:indexes": "firebase deploy --only firestore:indexes",
     "serve": "firebase emulators:start",
-    "start": "firebase serve --only hosting"
+    "start": "firebase serve --only hosting",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-delbedel \"node --test tests/firestore.rules.test.mjs\"",
+    "test:functions": "npm --prefix functions test",
+    "test": "npm run test:functions && npm run test:rules"
   },
   "devDependencies": {
-    "firebase-tools": "^13.0.0"
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^15.31.0"
   }
 }
