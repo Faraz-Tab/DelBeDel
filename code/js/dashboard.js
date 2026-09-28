@@ -1,3 +1,10 @@
+// Escape user-supplied text before inserting it into HTML
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[ch]);
+}
+
 const dash = {
   uid: null,
   username: null,
@@ -12,12 +19,19 @@ const dash = {
     const data = userDoc.data() || {};
     this.username = data.username;
 
+    const timezone = currentTimezone();
+    if (userDoc.exists && data.timezone !== timezone) {
+      db.collection("users").doc(user.uid).update({ timezone })
+        .catch(err => console.warn("Could not update timezone:", err));
+    }
+
     document.getElementById("dash-greeting").textContent =
       i18n.t("dash.greeting", { name: user.displayName || "User" });
 
     this.loadCooldowns();
     this.initGuide();
     this.initSearch();
+    this.initActions();
     await this.loadConnections();
     this.loadSummary();
   },
@@ -105,11 +119,11 @@ const dash = {
       } else {
         results.innerHTML = rows.map(r => `
           <div class="search-result-row">
-            <span class="search-result-name">${r.name}</span>
-            <span class="search-result-username">@${r.username}</span>
-            <button type="button" class="btn btn-sm"
-              onclick="dash.addConnection('${r.uid}', '${r.username}', '${r.name.replace(/'/g, "\\'")}')">
-              ${i18n.t("dash.search.btn")}
+            <span class="search-result-name">${escapeHtml(r.name)}</span>
+            <span class="search-result-username">@${escapeHtml(r.username)}</span>
+            <button type="button" class="btn btn-sm" data-action="add"
+              data-uid="${escapeHtml(r.uid)}" data-username="${escapeHtml(r.username)}" data-name="${escapeHtml(r.name)}">
+              ${escapeHtml(i18n.t("dash.search.btn"))}
             </button>
           </div>`).join("");
       }
@@ -118,6 +132,19 @@ const dash = {
     } catch (err) {
       console.warn("Live search failed:", err);
     }
+  },
+
+  // One delegated listener replaces inline onclick handlers, so no user data ends up in JavaScript strings
+  initActions() {
+    document.addEventListener("click", e => {
+      const el = e.target.closest("[data-action]");
+      if (!el) return;
+      const { action, uid, username, name, conn } = el.dataset;
+      if (action === "add") this.addConnection(uid, username, name);
+      else if (action === "tap") this.tap(conn, uid, name);
+      else if (action === "options") this.toggleOptions(conn);
+      else if (action === "remove") this.removeConnection(conn, name);
+    });
   },
 
   hideSearchResults() {
@@ -168,18 +195,14 @@ const dash = {
     }
 
     try {
-      const existing = await db.collection("connections")
-        .where("fromUid", "==", this.uid)
-        .where("toUid", "==", targetUid)
-        .get();
-
-      if (!existing.empty) {
+      const connRef = db.collection("connections").doc(`${this.uid}_${targetUid}`);
+      if ((await connRef.get()).exists) {
         msg.textContent = i18n.t("dash.search.alreadyAdded");
         msg.className = "msg error";
         return;
       }
 
-      await db.collection("connections").add({
+      await connRef.set({
         fromUid: this.uid,
         toUid: targetUid,
         fromUsername: this.username,
@@ -238,26 +261,26 @@ const dash = {
 
     let html = "";
     for (const conn of this.connections) {
-      const initials = this.getInitials(conn.toDisplayName || conn.toUsername);
+      const name = conn.toDisplayName || conn.toUsername;
+      const id = escapeHtml(conn.id);
 
       html += `
-        <div class="conn-row" id="conn-${conn.id}">
-          <div class="conn-avatar">${initials}</div>
+        <div class="conn-row">
+          <div class="conn-avatar">${escapeHtml(this.getInitials(name))}</div>
           <div class="conn-info">
-            <div class="conn-name">${conn.toDisplayName || conn.toUsername}</div>
-            <div class="conn-username">@${conn.toUsername}</div>
+            <div class="conn-name">${escapeHtml(name)}</div>
+            <div class="conn-username">@${escapeHtml(conn.toUsername)}</div>
           </div>
           <div class="conn-right">
-            <span class="conn-sent" id="sent-${conn.id}"></span>
-            <span class="conn-tap-count" id="count-${conn.id}"></span>
-            <button class="heart-btn" id="tap-${conn.id}"
-              onclick="dash.tap('${conn.id}', '${conn.toUid}', '${conn.toUsername}', '${(conn.toDisplayName || conn.toUsername).replace(/'/g, "\\'")}')">♥</button>
+            <span class="conn-sent" id="sent-${id}"></span>
+            <span class="conn-tap-count" id="count-${id}"></span>
+            <button class="heart-btn" id="tap-${id}" data-action="tap"
+              data-conn="${id}" data-uid="${escapeHtml(conn.toUid)}" data-name="${escapeHtml(name)}">♥</button>
             <div class="conn-options">
-              <button class="options-btn" aria-label="${i18n.t("dash.connections.options")}"
-                onclick="dash.toggleOptions('${conn.id}')">⋯</button>
-              <div class="options-menu" id="options-${conn.id}">
-                <button class="options-item"
-                  onclick="dash.removeConnection('${conn.id}', '${(conn.toDisplayName || conn.toUsername).replace(/'/g, "\\'")}')">${i18n.t("dash.connections.remove")}</button>
+              <button class="options-btn" aria-label="${escapeHtml(i18n.t("dash.connections.options"))}"
+                data-action="options" data-conn="${id}">⋯</button>
+              <div class="options-menu" id="options-${id}">
+                <button class="options-item" data-action="remove" data-conn="${id}" data-name="${escapeHtml(name)}">${escapeHtml(i18n.t("dash.connections.remove"))}</button>
               </div>
             </div>
           </div>
@@ -301,7 +324,7 @@ const dash = {
   },
 
   // --- Tapping ---
-  async tap(connId, toUid, toUsername, toDisplayName) {
+  async tap(connId, toUid, toDisplayName) {
     const btn = document.getElementById(`tap-${connId}`);
     const sentEl = document.getElementById(`sent-${connId}`);
 
@@ -319,24 +342,12 @@ const dash = {
     btn.classList.add("pulsed");
 
     try {
+      // The security rules require the cooldown document to advance in the same batch
+      const userRef = db.collection("users").doc(this.uid);
+      const now = firebase.firestore.FieldValue.serverTimestamp();
       const batch = db.batch();
-      const sentRef = db.collection("users").doc(this.uid)
-        .collection("tapsSent").doc();
-      const receivedRef = db.collection("users").doc(toUid)
-        .collection("tapsReceived").doc();
-
-      batch.set(sentRef, {
-        toUid: toUid,
-        toUsername: toUsername,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-      batch.set(receivedRef, {
-        fromUid: this.uid,
-        fromUsername: this.username,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
+      batch.set(userRef.collection("tapsSent").doc(), { toUid, timestamp: now });
+      batch.set(userRef.collection("tapCooldowns").doc(toUid), { last: now });
       await batch.commit();
 
       this.tapCooldowns[connId] = now;
@@ -349,7 +360,9 @@ const dash = {
       const tapCount = await this.getTodayTapCount(toUid);
       this.updateTapCountDisplay(connId, toDisplayName, tapCount);
     } catch (err) {
-      sentEl.textContent = err.message;
+      sentEl.textContent = err.code === "permission-denied"
+        ? i18n.t("dash.connections.cooldown")
+        : err.message;
       sentEl.className = "conn-sent show cooldown";
       setTimeout(() => { sentEl.className = "conn-sent"; }, 2000);
     }
@@ -402,7 +415,7 @@ const dash = {
 
     const { tappedBy, tapsSent, tapsReceived } = this.summaryData;
     const matches = this.summaryData.matches || [];
-    const hasTaps = Object.keys(tappedBy).length > 0;
+    const hasTaps = Object.keys(tappedBy || {}).length > 0;
 
     let html = `
       <h3 data-i18n="dash.summary.title"></h3>
@@ -413,7 +426,7 @@ const dash = {
     if (hasTaps) {
       html += `<ul class="summary-list">`;
       for (const [name, count] of Object.entries(tappedBy)) {
-        html += `<li>${i18n.t("dash.summary.tappedBy", { name: "@" + name, count })}</li>`;
+        html += `<li>${i18n.t("dash.summary.tappedBy", { name: "@" + escapeHtml(name), count: escapeHtml(count) })}</li>`;
       }
       html += `</ul>`;
     } else {
@@ -430,17 +443,17 @@ const dash = {
           ? m.matchedAt.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "";
         html += `<li>${i18n.t("dash.summary.matchWith", {
-          name: "@" + m.withUsername,
-          time,
-          gap: this.formatGap(m.gapSeconds)
+          name: "@" + escapeHtml(m.withUsername || "?"),
+          time: escapeHtml(time),
+          gap: escapeHtml(this.formatGap(m.gapSeconds))
         })}</li>`;
       }
       html += `</ul></div>`;
     }
 
     html += `<div class="summary-block summary-stats">
-      <p>${i18n.t("dash.summary.statsSent", { count: tapsSent })}</p>
-      <p>${i18n.t("dash.summary.statsReceived", { count: tapsReceived })}</p>
+      <p>${i18n.t("dash.summary.statsSent", { count: escapeHtml(tapsSent) })}</p>
+      <p>${i18n.t("dash.summary.statsReceived", { count: escapeHtml(tapsReceived) })}</p>
     </div>`;
 
     section.innerHTML = html;

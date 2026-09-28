@@ -21,7 +21,7 @@
   "intro.step3.title": "Tap When You Think of Them",
   "intro.step3.desc": "A simple heart tap records the moment — no notification is sent.",
   "intro.step4.title": "Discover Throughout the Day",
-  "intro.step4.desc": "See a summary of who thought about you today, updated every few hours.",
+  "intro.step4.desc": "See a summary of who thought about you today, updated every hour.",
 
   "register.title": "Create an Account",
   "register.displayName": "Display Name",
@@ -35,6 +35,7 @@
   "register.loginLink": "Login",
   "register.usernameTaken": "This username is already taken.",
   "register.usernameInvalid": "Username must be 3–20 characters: lowercase letters, numbers, or underscores.",
+  "register.displayNameInvalid": "Display name must be 1 to 50 characters.",
 
   "login.title": "Welcome Back",
   "login.email": "Email",
@@ -72,11 +73,11 @@
   "dash.connections.options": "Options",
   "dash.search.noMatches": "No matching users.",
   "dash.connections.tappedToday": "You tapped {name} {count} time(s) today",
-  "dash.connections.cooldown": "Wait atleas 3 minutes before tapping again",
+  "dash.connections.cooldown": "Wait at least 3 minutes before tapping again.",
 
   "dash.summary.title": "Your Summary",
   "dash.summary.today": "Today's Activity",
-  "dash.summary.updatesAt": "Updates every few hours",
+  "dash.summary.updatesAt": "Updates every hour, using your local time.",
   "dash.summary.noTaps": "No one has tapped you yet.",
   "dash.summary.tappedBy": "{name} — {count} tap(s)",
   "dash.summary.matchTitle": "Mutual Thinking",

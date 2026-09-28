@@ -2,60 +2,123 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: owner can read and create, update only displayName
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function validUsername(username) {
+      return username is string && username.matches('^[a-z0-9_]{3,20}$');
+    }
+
+    function validDisplayName(name) {
+      return name is string && name.size() > 0 && name.size() <= 50;
+    }
+
+    function validTimezone(tz) {
+      return tz is string && tz.size() <= 64 && tz.matches('^[A-Za-z0-9_+/-]+$');
+    }
+
+    // Users: created once at registration together with the matching username document.
+    // Only displayName and timezone can change afterwards.
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.username == resource.data.username
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.createdAt == resource.data.createdAt;
+      allow read: if isOwner(uid);
 
-      // Taps sent by this user — only the owner can create and read
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasAll(['displayName', 'username', 'email', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['displayName', 'username', 'email', 'createdAt', 'timezone'])
+        && validUsername(request.resource.data.username)
+        && validDisplayName(request.resource.data.displayName)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time
+        && (!('timezone' in request.resource.data) || validTimezone(request.resource.data.timezone))
+        && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'timezone'])
+        && validDisplayName(request.resource.data.displayName)
+        && (!('timezone' in request.resource.data) || validTimezone(request.resource.data.timezone));
+
+      // Taps sent by this user. The server sets the timestamp, the target must be a connection,
+      // and the cooldown document must be advanced in the same batch.
       match /tapsSent/{tapId} {
-        allow create: if request.auth != null && request.auth.uid == uid;
-        allow read: if request.auth != null && request.auth.uid == uid;
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && request.resource.data.keys().hasAll(['toUid', 'timestamp'])
+          && request.resource.data.keys().hasOnly(['toUid', 'timestamp'])
+          && request.resource.data.toUid is string
+          && request.resource.data.timestamp == request.time
+          && exists(/databases/$(database)/documents/connections/$(uid + '_' + request.resource.data.toUid))
+          && getAfter(/databases/$(database)/documents/users/$(uid)/tapCooldowns/$(request.resource.data.toUid)).data.last == request.time;
       }
 
-      // Taps received by this user — any authenticated user can create (sending a tap),
-      // but fromUid must match the sender's auth; only the owner can read
-      match /tapsReceived/{tapId} {
-        allow create: if request.auth != null
-          && request.resource.data.fromUid == request.auth.uid;
-        allow read: if request.auth != null && request.auth.uid == uid;
+      // One document per connection; enforces at least 3 minutes between taps to the same person
+      match /tapCooldowns/{toUid} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['last'])
+          && request.resource.data.last == request.time;
+        allow update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['last'])
+          && request.resource.data.last == request.time
+          && request.time > resource.data.last + duration.value(3, 'm');
       }
 
-      // Daily summary written by Cloud Function, read by owner only
+      // Written by the Cloud Function (Admin SDK bypasses rules); read by the owner only
       match /dailySummary/{date} {
-        allow read: if request.auth != null && request.auth.uid == uid;
+        allow read: if isOwner(uid);
       }
     }
 
-    // Research data — Cloud Function writes via Admin SDK (bypasses rules),
-    // no client access
+    // Research data: Cloud Function only, no client access
     match /research/{document=**} {
       allow read, write: if false;
     }
 
-    // Usernames: anyone authenticated can read (for search), creator can create,
-    // owner can update displayName only (uid is immutable), no delete
+    // Usernames: readable by signed-in users for search. Each user can claim exactly one,
+    // pointing at their own uid, in the same batch that creates their user document.
     match /usernames/{username} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null
-        && request.auth.uid == resource.data.uid
-        && request.resource.data.uid == resource.data.uid;
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && validUsername(username)
+        && request.resource.data.keys().hasAll(['uid', 'displayName'])
+        && request.resource.data.keys().hasOnly(['uid', 'displayName'])
+        && request.resource.data.uid == request.auth.uid
+        && validDisplayName(request.resource.data.displayName)
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username;
+
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
+        && validDisplayName(request.resource.data.displayName);
     }
 
-    // Connections: creator can create/read/delete, target can read
+    // Connections: ID is "<fromUid>_<toUid>", so each pair exists at most once and taps can check it.
     match /connections/{connId} {
-      allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.fromUid;
-      allow read: if request.auth != null
-        && (request.auth.uid == resource.data.fromUid
-            || request.auth.uid == resource.data.toUid);
-      allow delete: if request.auth != null
-        && request.auth.uid == resource.data.fromUid;
+      // Reading your own connection ID is allowed even if it does not exist yet (duplicate check)
+      allow get: if signedIn()
+        && (connId.matches('^' + request.auth.uid + '_.+$') || resource.data.toUid == request.auth.uid);
+
+      allow list: if signedIn() && resource.data.fromUid == request.auth.uid;
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['fromUid', 'toUid', 'fromUsername', 'toUsername', 'toDisplayName', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['fromUid', 'toUid', 'fromUsername', 'toUsername', 'toDisplayName', 'createdAt'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid is string
+        && request.resource.data.toUid != request.auth.uid
+        && connId == request.auth.uid + '_' + request.resource.data.toUid
+        && request.resource.data.createdAt == request.time
+        && validUsername(request.resource.data.toUsername)
+        && validDisplayName(request.resource.data.toDisplayName)
+        && get(/databases/$(database)/documents/usernames/$(request.resource.data.toUsername)).data.uid == request.resource.data.toUid
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == request.resource.data.fromUsername;
+
+      allow delete: if signedIn() && resource.data.fromUid == request.auth.uid;
     }
   }
 }

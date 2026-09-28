@@ -10,3 +10,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+
+// Use the local emulators during development so testing never touches live data
+if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+  auth.useEmulator("http://127.0.0.1:9099");
+  db.useEmulator("127.0.0.1", 8080);
+}

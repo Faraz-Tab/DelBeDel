@@ -1,251 +1,70 @@
+"use strict";
+
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { logger } = require("firebase-functions");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore } = require("firebase-admin/firestore");
+const { LOOKBACK_MS, analyze } = require("./analysis");
 
 initializeApp();
 const db = getFirestore();
+const BATCH_LIMIT = 400;
 
-const MATCH_WINDOW_MS = 10 * 60 * 1000;
-
-exports.dailyAnalysis = onSchedule("0 */6 * * *", async (event) => {
-  const now = new Date();
-  const dateKey = now.toISOString().split("T")[0];
-
-  const dayStart = new Date(now);
-  dayStart.setHours(0, 0, 0, 0);
-
-  const sentSnap = await db.collectionGroup("tapsSent")
-    .where("timestamp", ">=", dayStart)
-    .get();
-
-  const allTaps = [];
-  sentSnap.forEach(doc => {
-    const data = doc.data();
-    const senderUid = doc.ref.parent.parent.id;
-    allTaps.push({
-      fromUid: senderUid,
-      toUid: data.toUid,
-      toUsername: data.toUsername,
-      timestamp: data.timestamp.toDate()
-    });
-  });
-
-  const receivedSnap = await db.collectionGroup("tapsReceived")
-    .where("timestamp", ">=", dayStart)
-    .get();
-
-  const receivedByUser = {};
-  receivedSnap.forEach(doc => {
-    const data = doc.data();
-    const receiverUid = doc.ref.parent.parent.id;
-    if (!receivedByUser[receiverUid]) receivedByUser[receiverUid] = [];
-    receivedByUser[receiverUid].push({
-      fromUid: data.fromUid,
-      fromUsername: data.fromUsername,
-      timestamp: data.timestamp.toDate()
-    });
-  });
-
-  const pairMap = {};
-  for (const tap of allTaps) {
-    const key = `${tap.fromUid}__${tap.toUid}`;
-    if (!pairMap[key]) pairMap[key] = [];
-    pairMap[key].push(tap);
-  }
-
-  const matches = [];
-  const userStats = {};
-
-  const ensureUser = (uid) => {
-    if (!userStats[uid]) {
-      userStats[uid] = {
-        tapsSent: 0,
-        tapsReceived: 0,
-        matchedTaps: 0,
-        unmatchedSent: 0,
-        unmatchedReceived: 0,
-        matches: []
-      };
-    }
-  };
-
-  for (const tap of allTaps) {
-    ensureUser(tap.fromUid);
-    ensureUser(tap.toUid);
-    userStats[tap.fromUid].tapsSent++;
-    userStats[tap.toUid].tapsReceived++;
-  }
-
-  const checkedPairs = new Set();
-  for (const keyAB of Object.keys(pairMap)) {
-    const [uidA, uidB] = keyAB.split("__");
-    const pairId = [uidA, uidB].sort().join("__");
-
-    if (checkedPairs.has(pairId)) continue;
-    checkedPairs.add(pairId);
-
-    const keyBA = `${uidB}__${uidA}`;
-    const tapsAB = pairMap[keyAB] || [];
-    const tapsBA = pairMap[keyBA] || [];
-
-    if (tapsAB.length === 0 || tapsBA.length === 0) continue;
-
-    const usedB = new Set();
-    const sortedAB = [...tapsAB].sort((a, b) => a.timestamp - b.timestamp);
-    const sortedBA = [...tapsBA].sort((a, b) => a.timestamp - b.timestamp);
-
-    for (const tapA of sortedAB) {
-      let bestMatch = null;
-      let bestGap = Infinity;
-
-      for (let i = 0; i < sortedBA.length; i++) {
-        if (usedB.has(i)) continue;
-        const gap = Math.abs(tapA.timestamp - sortedBA[i].timestamp);
-        if (gap <= MATCH_WINDOW_MS && gap < bestGap) {
-          bestMatch = i;
-          bestGap = gap;
-        }
-      }
-
-      if (bestMatch !== null) {
-        usedB.add(bestMatch);
-        matches.push({
-          userA: uidA,
-          userB: uidB,
-          userAUsername: sortedBA[bestMatch].toUsername,
-          userBUsername: tapA.toUsername,
-          tapA_time: tapA.timestamp,
-          tapB_time: sortedBA[bestMatch].timestamp,
-          gapSeconds: Math.round(bestGap / 1000)
-        });
-      }
-    }
-  }
-
-  for (const match of matches) {
-    ensureUser(match.userA);
-    ensureUser(match.userB);
-    userStats[match.userA].matchedTaps++;
-    userStats[match.userB].matchedTaps++;
-    const matchedAt = match.tapA_time < match.tapB_time ? match.tapA_time : match.tapB_time;
-    userStats[match.userA].matches.push({
-      withUid: match.userB,
-      withUsername: match.userBUsername,
-      gapSeconds: match.gapSeconds,
-      matchedAt
-    });
-    userStats[match.userB].matches.push({
-      withUid: match.userA,
-      withUsername: match.userAUsername,
-      gapSeconds: match.gapSeconds,
-      matchedAt
-    });
-  }
-
-  for (const uid of Object.keys(userStats)) {
-    const s = userStats[uid];
-    s.unmatchedSent = Math.max(0, s.tapsSent - s.matchedTaps);
-    s.unmatchedReceived = Math.max(0, s.tapsReceived - s.matchedTaps);
-    s.matches.sort((a, b) => a.matchedAt - b.matchedAt);
-  }
-
-  const connSnap = await db.collection("connections").get();
-  const connTypes = {};
-  connSnap.forEach(doc => {
-    const d = doc.data();
-    const pairId = [d.fromUid, d.toUid].sort().join("__");
-    if (d.relationshipType) {
-      connTypes[pairId] = d.relationshipType;
-    }
-  });
-
-  const totalTaps = allTaps.length;
-  const totalMatches = matches.length;
-
-  const summaryRef = db.collection("research").doc("daily")
-    .collection(dateKey).doc("summary");
-
-  const summaryBatch = db.batch();
-  summaryBatch.set(summaryRef, {
-    date: dateKey,
-    totalTaps,
-    totalMatches,
-    totalUnmatched: totalTaps - (totalMatches * 2),
-    matchRate: totalTaps > 0 ? (totalMatches * 2) / totalTaps : 0,
-    windowMinutes: MATCH_WINDOW_MS / 60000,
-    activeUsers: Object.keys(userStats).length,
-    createdAt: FieldValue.serverTimestamp()
-  });
-  await summaryBatch.commit();
-
-  const userIds = Object.keys(userStats);
-  for (let i = 0; i < userIds.length; i += 400) {
-    const chunk = userIds.slice(i, i + 400);
+async function commitInChunks(writes) {
+  for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
     const batch = db.batch();
-
-    for (const uid of chunk) {
-      const ref = db.collection("research").doc("daily")
-        .collection(dateKey).doc("users")
-        .collection("reports").doc(uid);
-      batch.set(ref, userStats[uid]);
-    }
-
+    for (const [ref, data] of writes.slice(i, i + BATCH_LIMIT)) batch.set(ref, data);
     await batch.commit();
   }
+}
 
-  for (let i = 0; i < matches.length; i += 400) {
-    const chunk = matches.slice(i, i + 400);
-    const batch = db.batch();
-
-    for (const match of chunk) {
-      const pairId = [match.userA, match.userB].sort().join("__");
-      const recordId = `${pairId}_${match.tapA_time.getTime()}_${match.tapB_time.getTime()}`;
-      const ref = db.collection("research").doc("daily")
-        .collection(dateKey).doc("matches")
-        .collection("records").doc(recordId);
-      batch.set(ref, {
-        userA: match.userA,
-        userB: match.userB,
-        tapA_time: match.tapA_time,
-        tapB_time: match.tapB_time,
-        gapSeconds: match.gapSeconds,
-        relationshipType: connTypes[pairId] || null
-      });
+async function loadProfiles(uids) {
+  if (uids.length === 0) return {};
+  const refs = uids.map(uid => db.collection("users").doc(uid));
+  const snaps = await db.getAll(...refs);
+  const profiles = {};
+  for (const snap of snaps) {
+    if (snap.exists) {
+      const { username, timezone } = snap.data();
+      profiles[snap.id] = { username, timezone };
     }
-
-    await batch.commit();
   }
+  return profiles;
+}
 
-  for (let i = 0; i < userIds.length; i += 400) {
-    const chunk = userIds.slice(i, i + 400);
-    const batch = db.batch();
+async function runAnalysis(now) {
+  const since = new Date(now.getTime() - LOOKBACK_MS);
+  const snap = await db.collectionGroup("tapsSent").where("timestamp", ">=", since).get();
 
-    for (const uid of chunk) {
-      const ref = db.collection("users").doc(uid)
-        .collection("dailySummary").doc(dateKey);
-      const s = userStats[uid];
+  const taps = [];
+  snap.forEach(doc => {
+    const { toUid, timestamp } = doc.data();
+    if (typeof toUid !== "string" || !timestamp) return;
+    // The sender is the owner of the parent path, which the security rules tie to the authenticated user
+    taps.push({ fromUid: doc.ref.parent.parent.id, toUid, time: timestamp.toDate() });
+  });
 
-      const receivedList = receivedByUser[uid] || [];
-      const tappedBy = {};
-      for (const r of receivedList) {
-        tappedBy[r.fromUsername] = (tappedBy[r.fromUsername] || 0) + 1;
-      }
+  const uids = [...new Set(taps.flatMap(t => [t.fromUid, t.toUid]))];
+  const profiles = await loadProfiles(uids);
+  const { summaries, matches } = analyze(taps, profiles, now);
 
-      batch.set(ref, {
-        date: dateKey,
-        tapsSent: s.tapsSent,
-        tapsReceived: s.tapsReceived,
-        matchedTaps: s.matchedTaps,
-        unmatchedSent: s.unmatchedSent,
-        unmatchedReceived: s.unmatchedReceived,
-        matchCount: s.matches.length,
-        matches: s.matches,
-        tappedBy
-      });
+  const writes = [];
+  for (const [uid, byDate] of Object.entries(summaries)) {
+    for (const [date, summary] of Object.entries(byDate)) {
+      writes.push([db.collection("users").doc(uid).collection("dailySummary").doc(date), summary]);
     }
-
-    await batch.commit();
   }
+  for (const m of matches) {
+    const pairId = [m.userA, m.userB].sort().join("__");
+    const recordId = `${pairId}_${m.tapATime.getTime()}_${m.tapBTime.getTime()}`;
+    writes.push([db.collection("research").doc("matches").collection("records").doc(recordId), {
+      userA: m.userA, userB: m.userB, tapATime: m.tapATime, tapBTime: m.tapBTime, gapSeconds: m.gapSeconds
+    }]);
+  }
+  await commitInChunks(writes);
 
-  console.log(`Daily analysis complete: ${dateKey} — ${totalTaps} taps, ${totalMatches} matches, ${userIds.length} users`);
-});
+  logger.info("Analysis complete", { taps: taps.length, matches: matches.length, users: uids.length });
+}
+
+// Hourly, so each user's day is finalized soon after their local midnight
+exports.dailyAnalysis = onSchedule({ schedule: "every 60 minutes", timeZone: "UTC" }, () => runAnalysis(new Date()));
